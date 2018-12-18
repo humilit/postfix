@@ -1,0 +1,33 @@
+#!/bin/sh
+
+set -e
+
+apk add --no-cache postfix
+
+postconf -e "inet_interfaces = all"
+postconf -e "mynetworks_style = host"
+postconf -e "mynetworks = 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
+
+# the default is to use the local machine name, '$myhostname'
+# which defaults to the name of the docker container hostname (some hash)
+# that would result in something like 'user@234afe2g' as the sender
+# instead we use the $mydomain (from POSTFIX_DOMAIN)
+postconf -e "myorigin = \$mydomain"
+
+# add $mydomain to sender address, which will be user@<container-hostname-hash>.<mydomain>
+postconf -e "append_dot_mydomain = yes"
+# removes subdomain from the sender domain, so we effectively get user@$mydomain from user@<container-hostname-hash>.<mydomain>
+postconf -e "masquerade_domains = \$mydomain"
+
+postconf -e "local_header_rewrite_clients = permit_inet_interfaces"
+postconf -e "remote_header_rewrite_domain = \$mydomain"
+
+# remove $myhostname from $mydestination, so emails won't be skipped when forwarded.
+postconf -e "mydestination = localhost.\$mydomain, localhost"
+
+echo "root website" >> /etc/postfix/generic
+echo "apache website" >> /etc/postfix/generic
+echo "www-data website" >> /etc/postfix/generic
+
+postmap /etc/postfix/generic
+postconf -e "smtp_generic_maps = hash:/etc/postfix/generic"

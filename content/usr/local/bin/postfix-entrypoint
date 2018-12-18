@@ -1,0 +1,39 @@
+#!/bin/sh
+
+set -e
+
+if [ -n "$POSTFIX_DOMAIN" ]; then
+    postconf -e "mydomain = $POSTFIX_DOMAIN"
+fi
+
+if [ -n "$POSTFIX_HOSTNAME" ]; then
+    postconf -e "myhostname = $POSTFIX_HOSTNAME"
+fi
+
+if [ -n "$POSTFIX_HELO_NAME" ]; then
+    postconf -e "smtp_helo_name = $POSTFIX_HELO_NAME"
+fi
+
+if [ -n "$POSTFIX_MY_NETWORKS" ]; then
+    postconf -e "mynetworks = $POSTFIX_MY_NETWORKS"
+fi
+
+if [ -n "$POSTFIX_SMTP_TLS_SECURITY_LEVEL" ]; then
+    postconf -e "smtp_tls_security_level = $POSTFIX_SMTP_TLS_SECURITY_LEVEL"
+fi
+
+if [ -n "$POSTFIX_SMTP_TLS_POLICY_MAPS" ]; then
+    postconf -e "smtp_tls_policy_maps = hash:/etc/postfix/tls_policy"
+
+    touch /etc/postfix/tls_policy
+
+    IFS=$'\n'
+    for map in $POSTFIX_SMTP_TLS_POLICY_MAPS; do
+        echo "$map" >> /etc/postfix/tls_policy
+    done
+    postmap /etc/postfix/tls_policy
+fi
+
+syslogd -n -S -O $SYSLOG_PATH &
+
+exec "$@"
